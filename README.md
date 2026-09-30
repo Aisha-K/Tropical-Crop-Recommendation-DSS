@@ -49,30 +49,28 @@ This starter intentionally does not copy the original repository's old
 dependency list. Dependencies are managed independently so they can be
 updated for the DSS.
 
-## Project structure
+## Project structure (high-level)
 
 ```text
 crop_recommendation_dss/
-├── .streamlit/
-│   └── config.toml
-├── app.py
-├── pages/
-├── utils/
-│   └── dss.py
-├── models/
+├── .gitignore
 ├── data/
-├── static/
+│   ├── raw/
+│   └── processed/
+├── models/
+├── references/
+│   └── data_sources.md
+├── src/
+│   ├── data_processing.py
+│   ├── evaluate.py
+│   ├── feature.py
+│   └── train.py
+├── streamlit/
+│   ├── .streamlit/
+│   ├── app.py
+│   ├── pages/
+│   ├── static/
+│   └── utils/
 ├── requirements.txt
 └── README.md
 ```
-
-## Next development steps
-
-1. Replace demo recommendations with the actual trained model.
-2. Add your Malaysian district dataset.
-3. Add FAO suitability values.
-4. Add soil/climate feature processing.
-5. Add fertilizer/agronomic constraints.
-6. Add yield and cost/revenue calculations.
-7. Add map layers.
-8. Add model evaluation and explainability.
