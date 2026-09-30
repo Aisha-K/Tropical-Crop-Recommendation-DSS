@@ -1,0 +1,17 @@
+# Core DSS application
+streamlit==1.63.0
+pandas
+numpy
+scikit-learn
+
+# Visualization / mapping
+altair
+plotly
+pydeck
+
+# Optional geospatial packages; uncomment when your GIS layer is ready
+# geopandas
+# rasterio
+
+# Model persistence
+joblib
