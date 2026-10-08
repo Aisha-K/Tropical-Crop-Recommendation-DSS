@@ -60,7 +60,11 @@ def list_crop_values(name: str, df: pd.DataFrame) -> None:
 
 def main() -> None:
     # Read each raw CSV with pandas and print its summary
+
+
+    dataframes = []
     for name, (file_path, measurement_column) in DATA_FILES.items():
+
         if not file_path.is_file():
             raise FileNotFoundError(f"Expected data file was not found: {file_path}")
 
@@ -72,9 +76,8 @@ def main() -> None:
             )
         else:
             data = pd.read_csv(file_path)
-            
+        
         summarize_dataset(name, data)
-       
         #list_crop_values(name, data) #list each unique crop name
 
         # DATA CLEANING
@@ -93,10 +96,37 @@ def main() -> None:
         #summarize stats for cleaned files
         summarize_dataset(name, data)
 
-        # OUTPUT cleaned files
+        dataframes.append(data) # store in list
+
+    print( len(dataframes))
+
+    # Aggregate measurements to one row per shared crop and district key.
+    merge_keys = ["date", "state", "district", "crop_species", "crop_type"]
+    area_by_key = dataframes[1].groupby(
+        merge_keys, as_index=False, sort=False, dropna=False
+    )["planted_area"].sum()
+    production_by_key = dataframes[2].groupby(
+        merge_keys, as_index=False, sort=False, dropna=False
+    )["production"].sum()
+
+    #join yield datasets
+    new_yield_df = area_by_key.merge(production_by_key,
+                                       on = merge_keys,
+                                       how = 'inner',
+                                       validate="one_to_one" )
+    
+    summarize_dataset("Merged dataset", new_yield_df)
+    #TODO join weather data
+
+    dataframes.append( new_yield_df )
+
+    # OUTPUT final files
+    for data in dataframes:
         output_path = CLEANED_DATA_DIR / f"{file_path.stem}_cleaned.csv"
         data.to_csv(output_path, index=False)
-        print(f"Cleaned data saved to: {output_path}")
+
+
+    print(f"Cleaned data saved to: {CLEANED_DATA_DIR}")
 
 
 if __name__ == "__main__":
