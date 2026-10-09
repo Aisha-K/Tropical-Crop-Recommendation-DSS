@@ -13,10 +13,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 CLEANED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 DATA_FILES = {
-    "Ecocrop": (RAW_DATA_DIR / "EcoCrop_DB.csv", None),
-    "District crop area": (RAW_DATA_DIR / "crops_district_area.csv", "planted_area"),
-    "District crop production": (RAW_DATA_DIR / "crops_district_production.csv", "production"),
-    "Price_catcher": (RAW_DATA_DIR / "pricecatcher_2026-09.csv", None),
+    "ecocrop": (RAW_DATA_DIR / "EcoCrop_DB.csv", None),
+    "district_crop_area": (RAW_DATA_DIR / "crops_district_area.csv", "planted_area"),
+    "district_crop_production": (RAW_DATA_DIR / "crops_district_production.csv", "production"),
+    "price_catcher": (RAW_DATA_DIR / "pricecatcher_2026-09.csv", None),
 }
 
 
@@ -57,6 +57,16 @@ def list_crop_values(name: str, df: pd.DataFrame) -> None:
             print(f"\n{column} ({df[column].nunique(dropna=False):,} values):")
             print(df[column].value_counts(dropna=False).to_string())
 
+def climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
+    """Process weather data and return a cleaned DataFrame with annual averages."""
+    
+    # Additional processing can be added here
+    
+    climate_df = None
+    
+    return climate_df
+
+
 
 def main() -> None:
     # Read each raw CSV with pandas and print its summary
@@ -68,7 +78,7 @@ def main() -> None:
         if not file_path.is_file():
             raise FileNotFoundError(f"Expected data file was not found: {file_path}")
 
-        if name == 'Ecocrop':
+        if name == 'ecocrop':
             data = pd.read_csv(
                 file_path,
                 encoding="cp1252",
@@ -96,16 +106,16 @@ def main() -> None:
         #summarize stats for cleaned files
         summarize_dataset(name, data)
 
-        dataframes.append(data) # store in list
+        dataframes.append((name, data)) # store dataset name and dataframe
 
     print( len(dataframes))
 
     # Aggregate measurements to one row per shared crop and district key.
     merge_keys = ["date", "state", "district", "crop_species", "crop_type"]
-    area_by_key = dataframes[1].groupby(
+    area_by_key = dataframes[1][1].groupby(
         merge_keys, as_index=False, sort=False, dropna=False
     )["planted_area"].sum()
-    production_by_key = dataframes[2].groupby(
+    production_by_key = dataframes[2][1].groupby(
         merge_keys, as_index=False, sort=False, dropna=False
     )["production"].sum()
 
@@ -114,16 +124,28 @@ def main() -> None:
                                        on = merge_keys,
                                        how = 'inner',
                                        validate="one_to_one" )
-    
-    summarize_dataset("Merged dataset", new_yield_df)
-    #TODO join weather data
 
-    dataframes.append( new_yield_df )
+    new_yield_df['yield'] = new_yield_df['production'] / new_yield_df['planted_area']
+    summarize_dataset("Merged dataset", new_yield_df)
+    dataframes.append(("Merged dataset", new_yield_df))
+
+    #output list of included crop types
+    crop_type_counts = (
+        new_yield_df["crop_species"]
+        .value_counts(dropna=False)
+        .rename_axis("crop_type")
+        .reset_index(name="count")
+    )
+    dataframes.append(("Crop types", crop_type_counts))
+
+    #TODO climate data
 
     # OUTPUT final files
-    for data in dataframes:
-        output_path = CLEANED_DATA_DIR / f"{file_path.stem}_cleaned.csv"
+    CLEANED_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    for name, data in dataframes:
+        output_path = CLEANED_DATA_DIR / f"{name}_cleaned.csv"
         data.to_csv(output_path, index=False)
+        print(f"Saved {name} to: {output_path}")
 
 
     print(f"Cleaned data saved to: {CLEANED_DATA_DIR}")
