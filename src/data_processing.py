@@ -66,7 +66,38 @@ def climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
     
     return climate_df
 
+def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFrame) -> pd.DataFrame:
+    """Keep EcoCrop rows whose comma-separated common names include a crop
+    species found in the district data."""
+    
+    if "COMNAME" not in ecocrop_df.columns:
+        raise ValueError("The EcoCrop data must contain a COMNAME column.")
 
+    crop_names = {
+        str(crop_name).strip().casefold().replace("_", " ")
+        for crop_name in crop_type_counts["crop_type"]
+        if pd.notna(crop_name)
+    }
+    common_name_tokens = ecocrop_df["COMNAME"].fillna("").map(
+        lambda common_names: {
+            token.strip().casefold() for token in str(common_names).split(",")
+        }
+    )
+    matched_crop_names = set().union(
+        *(tokens & crop_names for tokens in common_name_tokens)
+    )
+    matched_rows = common_name_tokens.map(lambda tokens: bool(tokens & crop_names))
+    ecocrop_reduced = ecocrop_df.loc[matched_rows].copy()
+
+    print(
+        f"Matched {len(matched_crop_names):,} of {len(crop_names):,} crop names "
+        "to EcoCrop COMNAME entries."
+    )
+    
+    return ecocrop_reduced
+
+
+#--------------------------------- MAIN
 
 def main() -> None:
     # Read each raw CSV with pandas and print its summary
@@ -138,10 +169,14 @@ def main() -> None:
     )
     dataframes.append(("Crop types", crop_type_counts))
 
+    # Keep EcoCrop rows whose comma-separated common names include a crop
+    # species found in the district data.
+    ecocrop_df_new = match_ecocrop_to_crops(dataframes[0][1], crop_type_counts)
+    dataframes.append(("ecocrop_reduced", ecocrop_df_new))  
+
     #TODO climate data
 
     # OUTPUT final files
-    CLEANED_DATA_DIR.mkdir(parents=True, exist_ok=True)
     for name, data in dataframes:
         output_path = CLEANED_DATA_DIR / f"{name}_cleaned.csv"
         data.to_csv(output_path, index=False)
