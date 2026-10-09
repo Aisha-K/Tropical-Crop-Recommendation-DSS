@@ -58,7 +58,8 @@ def list_crop_values(name: str, df: pd.DataFrame) -> None:
             print(df[column].value_counts(dropna=False).to_string())
 
 def climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
-    """Process weather data and return a cleaned DataFrame with annual averages."""
+    """Process climate data and return a cleaned DataFrame with 
+    annual averages per district."""
     
     # Additional processing can be added here
     
@@ -66,35 +67,77 @@ def climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
     
     return climate_df
 
+def match_price_data(price_df: pd.DataFrame) -> pd.DataFrame:
+    """keep price data found in the yield district data"""
+    
+    # Additional processing can be added here
+    
+    price_df = None
+    
+    return price_df
+
 def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFrame) -> pd.DataFrame:
-    """Keep EcoCrop rows whose comma-separated common names include a crop
-    species found in the district data."""
+    """Left-join crop counts to EcoCrop rows matched through COMNAME."""
     
     if "COMNAME" not in ecocrop_df.columns:
         raise ValueError("The EcoCrop data must contain a COMNAME column.")
 
-    crop_names = {
-        str(crop_name).strip().casefold().replace("_", " ")
-        for crop_name in crop_type_counts["crop_type"]
-        if pd.notna(crop_name)
-    }
-    common_name_tokens = ecocrop_df["COMNAME"].fillna("").map(
-        lambda common_names: {
-            token.strip().casefold() for token in str(common_names).split(",")
-        }
+    def normalize_name(value: object) -> str:
+        return str(value).strip().casefold().replace("_", " ")
+
+    crop_counts = crop_type_counts.copy()
+    crop_counts["_match_name"] = crop_counts["crop_type"].map(
+        lambda value: normalize_name(value) if pd.notna(value) else None
     )
-    matched_crop_names = set().union(
-        *(tokens & crop_names for tokens in common_name_tokens)
+
+    eco_rows = ecocrop_df.reset_index(drop=True).copy()
+    eco_rows["__eco_row_id"] = eco_rows.index
+    eco_rows["_match_name"] = eco_rows["COMNAME"].fillna("").map(
+        lambda common_names: list(
+            {
+                normalize_name(token)
+                for token in str(common_names).split(",")
+                if token.strip()
+            }
+        )
     )
-    matched_rows = common_name_tokens.map(lambda tokens: bool(tokens & crop_names))
-    ecocrop_reduced = ecocrop_df.loc[matched_rows].copy()
+    eco_matches = eco_rows.explode("_match_name").drop_duplicates(
+        subset=["__eco_row_id", "_match_name"]
+    )
+
+    joined = crop_counts.merge(
+        eco_matches,
+        on="_match_name",
+        how="left",
+        sort=False,
+        suffixes=("", "_ecocrop"),
+    )
+    matched_crop_names = joined.loc[
+        joined["__eco_row_id"].notna(), "crop_type"
+    ].nunique()
 
     print(
-        f"Matched {len(matched_crop_names):,} of {len(crop_names):,} crop names "
+        f"Matched {matched_crop_names:,} of {crop_counts['crop_type'].nunique():,} "
+        "crop names "
         "to EcoCrop COMNAME entries."
     )
+
+    # certain names form the malaysian data were in malay and unable to find matches in ecocrop
+    # those are being manually edited
     
-    return ecocrop_reduced
+    #TODO
+    map_malay_crpos = {'cekur': 'ginger' , 
+                    "misai_kucing":"cat's whiskers",
+                    'fragrant_lemon_grass': 'lemon grass',
+                    'dokong': 'Lansium aqueum (Jack) Jacks',
+                    'yellow sugarcane': 'sugarcane',
+                    'cempedak': 'jackfruit'}
+
+    #TODO resolve 1-to-many matches in the ecocrop data
+
+    #TODO add data for crops that are missing from the ecocrop data
+
+    return joined.drop(columns=["_match_name", "__eco_row_id"])
 
 
 #--------------------------------- MAIN
@@ -158,7 +201,7 @@ def main() -> None:
 
     new_yield_df['yield'] = new_yield_df['production'] / new_yield_df['planted_area']
     summarize_dataset("Merged dataset", new_yield_df)
-    dataframes.append(("Merged dataset", new_yield_df))
+    dataframes.append(("yield_dataset", new_yield_df))
 
     #output list of included crop types
     crop_type_counts = (
@@ -169,12 +212,16 @@ def main() -> None:
     )
     dataframes.append(("Crop types", crop_type_counts))
 
-    # Keep EcoCrop rows whose comma-separated common names include a crop
-    # species found in the district data.
+    # match EcoCrop rows to crop types from the district data
     ecocrop_df_new = match_ecocrop_to_crops(dataframes[0][1], crop_type_counts)
-    dataframes.append(("ecocrop_reduced", ecocrop_df_new))  
+    #drop rows with low counts
+    ecocrop_df_new = ecocrop_df_new[ecocrop_df_new['count'] > 2]
+    dataframes.append(("ecocrop_matched", ecocrop_df_new))  
 
     #TODO climate data
+
+    #TODO price data
+
 
     # OUTPUT final files
     for name, data in dataframes:

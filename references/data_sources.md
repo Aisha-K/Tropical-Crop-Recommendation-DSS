@@ -8,9 +8,9 @@ Raw datasets shoul dbe downloaded and stored in `/data/raw/`
 
 | Dataset / file | Role in the DSS | Source / publisher | Coverage (years) | Geography | Rows | Columns | Retrieved on | URL |
 |---|---|---|---:|---|---:|---:|---|---|
-| crops_district_area.csv` | Yield prediction | OpenDOSM | 2017 | Malaysia | 10555 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_area) |
+| crops_district_area.csv | Yield prediction | OpenDOSM | 2017 | Malaysia | 10555 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_area) |
 | crops_district_production.csv | Yield prediction | OpenDOSM | 2017 | Malaysia | 11002 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_production) |
-| [add dataset/file] | ROI calculation | OpenDOSM | [fill in] | [fill in] | [fill in] | [fill in] | [YYYY-MM-DD] | [link](https://open.dosm.gov.my/data-catalogue/pricecatcher) |
+| pricecatcher_2026-09 | ROI calculation | OpenDOSM | [fill in] | Malaysia | 1,390,113 | 4 | 2026-10-09 | [link](https://open.dosm.gov.my/data-catalogue/pricecatcher) |
 | EcoCrop_DB.csv | [Suitability] | FAE | NA | NA | 2568 | [fill in] | 2026-09-30 |[link](https://github.com/OpenCLIM/ecocrop/blob/main/EcoCrop_DB.csv) |
 
 
@@ -35,7 +35,7 @@ Running the data_processing.py and feature.py scripts create the processed datas
 
 | Dataset / file | Input dataset(s) | Role in the DSS | Coverage (years) | Rows | Columns | URL |
 |---|---|---|---|---|---|---|
-| [fill in] | [fill in] | [fill in] | [fill in] | [fill in] | [fill in] |
+| yield_dataset_cleaned | [fill in] | [fill in] | [fill in] | [fill in] | [fill in] |
 
 #### Dataset 1: Variables
 
