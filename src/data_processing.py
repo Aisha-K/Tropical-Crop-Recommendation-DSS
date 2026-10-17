@@ -16,9 +16,12 @@ DATA_FILES = {
     "ecocrop": (RAW_DATA_DIR / "EcoCrop_DB.csv", None),
     "district_crop_area": (RAW_DATA_DIR / "crops_district_area.csv", "planted_area"),
     "district_crop_production": (RAW_DATA_DIR / "crops_district_production.csv", "production"),
-    "price_catcher": (RAW_DATA_DIR / "pricecatcher_2026-09.csv", None),
 }
 
+LOOKUP_TABLES = {
+    "item_lookup": (RAW_DATA_DIR / "lookup_item.csv", None),
+    "premise_lookup": (RAW_DATA_DIR / "lookup_premise.csv", None),
+}
 
 def summarize_dataset(name: str, df: pd.DataFrame) -> None:
     """Print dataset dimensions, descriptive statistics, and per-column counts."""
@@ -61,20 +64,28 @@ def climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
     """Process climate data and return a cleaned DataFrame with 
     annual averages per district."""
     
-    # Additional processing can be added here
+    #TODO Additional processing can be added here
     
     climate_df = None
     
     return climate_df
 
-def match_price_data(price_df: pd.DataFrame) -> pd.DataFrame:
-    """keep price data found in the yield district data"""
-    
-    # Additional processing can be added here
-    
-    price_df = None
-    
-    return price_df
+
+def match_price_data(price_df: pd.DataFrame, crop_type_df: pd.DataFrame) -> pd.DataFrame:
+    matched_price_df = None
+
+    #TODO translate to english and join
+
+    #join with district yield table
+    # matched_price_df = matched_price_df.merge(
+    #     crop_type_df,
+    #     on=["district", "crop_type"],
+    #     how="full",
+    #     sort=False,
+    #     validate="many_to_one",
+    # )
+
+    return matched_price_df
 
 def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFrame) -> pd.DataFrame:
     """Left-join crop counts to EcoCrop rows matched through COMNAME."""
@@ -85,10 +96,30 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
     def normalize_name(value: object) -> str:
         return str(value).strip().casefold().replace("_", " ")
 
+    # certain names form the malaysian data were in malay and unable to find matches in ecocrop
+    # those are being manually edited
+        
+    map_malay_crops = {'cekur': 'ginger' , 
+                    "misai_kucing":"cat's whiskers",
+                    'fragrant_lemon_grass': 'lemon grass',
+                    'dokong': 'Lansium aqueum (Jack) Jacks',
+                    'yellow sugarcane': 'sugarcane',
+                    'cempedak': 'jackfruit',
+                    }
+
+    normalized_aliases = {
+        normalize_name(source): normalize_name(target)
+        for source, target in map_malay_crops.items()
+    }
+
     crop_counts = crop_type_counts.copy()
     crop_counts["_match_name"] = crop_counts["crop_type"].map(
-        lambda value: normalize_name(value) if pd.notna(value) else None
-    )
+        lambda value: (
+            normalized_aliases.get(normalize_name(value), normalize_name(value))
+            if pd.notna(value)
+            else None
+        )    
+        )
 
     eco_rows = ecocrop_df.reset_index(drop=True).copy()
     eco_rows["__eco_row_id"] = eco_rows.index
@@ -105,6 +136,7 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
         subset=["__eco_row_id", "_match_name"]
     )
 
+
     joined = crop_counts.merge(
         eco_matches,
         on="_match_name",
@@ -112,30 +144,35 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
         sort=False,
         suffixes=("", "_ecocrop"),
     )
-    matched_crop_names = joined.loc[
-        joined["__eco_row_id"].notna(), "crop_type"
-    ].nunique()
 
-    print(
-        f"Matched {matched_crop_names:,} of {crop_counts['crop_type'].nunique():,} "
-        "crop names "
-        "to EcoCrop COMNAME entries."
-    )
+    #  a specific scientific name for crop names whose EcoCrop common
+    # names can refer to multiple records.
+    proper_match = {
+        "banana": ["Musa sp."],  # pisang
+        "lemon_grass": ["Cymbopogon citratus"],  # serai
+        "pomelo": ["Citrus grandis"],
+        #"yam": ["Dioscorea alata", "Dioscorea esculenta"], #grown on small scale, probably meant keladi
+        #"coffee": #multiple species grown in malaysia
+        "roselle": ["Hibiscus sabdariffa var. sabdariffa"],  # probably
+    }
 
-    # certain names form the malaysian data were in malay and unable to find matches in ecocrop
-    # those are being manually edited
-    
-    #TODO
-    map_malay_crpos = {'cekur': 'ginger' , 
-                    "misai_kucing":"cat's whiskers",
-                    'fragrant_lemon_grass': 'lemon grass',
-                    'dokong': 'Lansium aqueum (Jack) Jacks',
-                    'yellow sugarcane': 'sugarcane',
-                    'cempedak': 'jackfruit'}
+    print(joined.loc[joined["crop_type"]=="yam", ["crop_type", "ScientificName"]].head(10))
+   
+   # remove rows from joined that have more than one match and are not in the proper_match dictionary
+    for key, values in proper_match.items():
+        joined = joined[
+            ~(
+                (joined["crop_type"] == key)
+                & (~joined["ScientificName"].isin(values))
+            )
+        ]
 
-    #TODO resolve 1-to-many matches in the ecocrop data
+    #manually join yam to "Colocasia esculenta" from eco crop, as it is referred to as keladi/yam in malaysia
+    keladi_row = ecocrop_df[ecocrop_df["ScientificName"] == "Colocasia esculenta"]
+    joined = pd.concat([joined, keladi_row.assign(crop_type="yam", count = 67)], ignore_index=True)
 
     #TODO add data for crops that are missing from the ecocrop data
+    # AI and sources used
 
     return joined.drop(columns=["_match_name", "__eco_row_id"])
 
@@ -144,7 +181,6 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
 
 def main() -> None:
     # Read each raw CSV with pandas and print its summary
-
 
     dataframes = []
     for name, (file_path, measurement_column) in DATA_FILES.items():
@@ -184,6 +220,7 @@ def main() -> None:
 
     print( len(dataframes))
 
+    ##----- District yield data 
     # Aggregate measurements to one row per shared crop and district key.
     merge_keys = ["date", "state", "district", "crop_species", "crop_type"]
     area_by_key = dataframes[1][1].groupby(
@@ -212,15 +249,21 @@ def main() -> None:
     )
     dataframes.append(("Crop types", crop_type_counts))
 
+    ##----- Price data
+    #matched_price_df = match_price_data(dataframes[3][1], crop_type_counts)
+    #summarize_dataset("Matched price data", matched_price_df)
+    #dataframes.append(("matched_price", matched_price_df))
+
+
+    ##----- Ecocrop data
     # match EcoCrop rows to crop types from the district data
     ecocrop_df_new = match_ecocrop_to_crops(dataframes[0][1], crop_type_counts)
     #drop rows with low counts
     ecocrop_df_new = ecocrop_df_new[ecocrop_df_new['count'] > 2]
     dataframes.append(("ecocrop_matched", ecocrop_df_new))  
 
-    #TODO climate data
-
-    #TODO price data
+    ##----- Climate data
+    # TODO: Implement climate data processing
 
 
     # OUTPUT final files

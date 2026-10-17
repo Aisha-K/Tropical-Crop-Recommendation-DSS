@@ -10,11 +10,9 @@ Raw datasets shoul dbe downloaded and stored in `/data/raw/`
 |---|---|---|---:|---|---:|---:|---|---|
 | crops_district_area.csv | Yield prediction | OpenDOSM | 2017 | Malaysia | 10555 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_area) |
 | crops_district_production.csv | Yield prediction | OpenDOSM | 2017 | Malaysia | 11002 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_production) |
-| pricecatcher_2026-09 | ROI calculation | OpenDOSM | [fill in] | Malaysia | 1,390,113 | 4 | 2026-10-09 | [link](https://open.dosm.gov.my/data-catalogue/pricecatcher) |
+| DATA HARGA KOMODITI PILIHAN | ROI calculation | FAMA | 2015-2026 | Malaysia | - | - | 2026-01-06 | [link](https://www.fama.gov.my/maklumat-harga-agromakanan-terpilih) |
 | EcoCrop_DB.csv | [Suitability] | FAE | NA | NA | 2568 | [fill in] | 2026-09-30 |[link](https://github.com/OpenCLIM/ecocrop/blob/main/EcoCrop_DB.csv) |
 
-
-Additional lookup tables were used for the price catcher data for lookups, as detailed (and provided) on the corresponding openDOSM page.
 
 
 ### Dataset size and quality
@@ -23,9 +21,9 @@ Additional lookup tables were used for the price catcher data for lookups, as de
 |---|---|---|---|---|---|
 |Number of records used| [fill in] | | | | |
 |Number of records excluded| | | | | |
-|Missing values| 5000 |
-|Duplicate records| [fill in] |
-|Known limitations or caveats| [fill in] |
+|Missing values| 5000 | | | |
+|Duplicate records| [fill in] | | |
+|Known limitations or caveats| data only for 2017 | data only for 2017 | | |
 
 
 ## Processed Dataset Inventory
