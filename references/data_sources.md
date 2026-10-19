@@ -12,8 +12,10 @@ Raw datasets shoul dbe downloaded and stored in `/data/raw/`
 | crops_district_production.csv | Yield prediction | OpenDOSM | 2017 | Malaysia | 11002 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_production) |
 | DATA HARGA KOMODITI PILIHAN | ROI calculation | FAMA | 2015-2026 | Malaysia | - | - | 2026-01-06 | [link](https://www.fama.gov.my/maklumat-harga-agromakanan-terpilih) |
 | EcoCrop_DB.csv | [Suitability] | FAE | NA | NA | 2568 | [fill in] | 2026-09-30 |[link](https://github.com/OpenCLIM/ecocrop/blob/main/EcoCrop_DB.csv) |
+|  | [Climate] | NA | NA | NA | 644 | 9 | 2026-10-17 |[link]() |
 
 
+https://github.com/mptwaktusolat/jakim.geojson/blob/master/malaysia.district.geojson
 
 ### Dataset size and quality
 

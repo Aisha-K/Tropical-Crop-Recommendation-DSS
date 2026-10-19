@@ -4,6 +4,7 @@ Run from any working directory with:
     python src/data_processing.py
 """
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,8 @@ DATA_FILES = {
     "district_crop_area": (RAW_DATA_DIR / "crops_district_area.csv", "planted_area"),
     "district_crop_production": (RAW_DATA_DIR / "crops_district_production.csv", "production"),
 }
+
+DISTRICT_MAP_FILE = RAW_DATA_DIR / "malaysia.district.geojson"
 
 LOOKUP_TABLES = {
     "item_lookup": (RAW_DATA_DIR / "lookup_item.csv", None),
@@ -60,13 +63,42 @@ def list_crop_values(name: str, df: pd.DataFrame) -> None:
             print(f"\n{column} ({df[column].nunique(dropna=False):,} values):")
             print(df[column].value_counts(dropna=False).to_string())
 
-def climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
-    """Process climate data and return a cleaned DataFrame with 
-    annual averages per district."""
+
+def get_lat_long_per_district(district_map: geoJSON) -> pd.DataFrame:
+    """Extract the latitude and longitude for each district from a GeoJSON object."""
+    district_data = []
+    for feature in district_map["features"]:
+        district_name = feature["properties"]["name"]
+        state_name = feature["properties"]["state"]
+        coordinates = feature["geometry"]["coordinates"]
+        # Calculate the centroid of the polygon to get a representative lat/long
+        if feature["geometry"]["type"] == "Polygon":
+            lon, lat = zip(*coordinates[0])
+            centroid_lat = sum(lat) / len(lat)
+            centroid_lon = sum(lon) / len(lon)
+            district_data.append({"state": state_name, "district": district_name, "latitude": centroid_lat, "longitude": centroid_lon})
+        elif feature["geometry"]["type"] == "MultiPolygon":
+            # For MultiPolygons, take the first polygon's centroid
+            lon, lat = zip(*coordinates[0][0])
+            centroid_lat = sum(lat) / len(lat)
+            centroid_lon = sum(lon) / len(lon)
+            district_data.append({"state": state_name, "district": district_name, "latitude": centroid_lat, "longitude": centroid_lon})
     
-    #TODO Additional processing can be added here
+    return pd.DataFrame(district_data)
+
+
+def get_climate_data(climate_df: pd.DataFrame) -> pd.DataFrame:
+    """Make API calls and process climate data and return a 
+    cleaned DataFrame with annual averages per district."""
+
+    #make API calls to get temperature and precipitation data for each district based on lat/long
+
     
-    climate_df = None
+    #TODO get annual min/max/averages
+
+    # Use a 5-year average (2020-2025) for the ecocrop rule-based model#
+    # and keep 2017 for yield dataset
+    
     
     return climate_df
 
@@ -103,7 +135,7 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
                     "misai_kucing":"cat's whiskers",
                     'fragrant_lemon_grass': 'lemon grass',
                     'dokong': 'Lansium aqueum (Jack) Jacks',
-                    'yellow sugarcane': 'sugarcane',
+                    'yellow_sugar_cane': 'sugarcane',
                     'cempedak': 'jackfruit',
                     }
 
@@ -181,7 +213,6 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
 
 def main() -> None:
     # Read each raw CSV with pandas and print its summary
-
     dataframes = []
     for name, (file_path, measurement_column) in DATA_FILES.items():
 
@@ -189,11 +220,7 @@ def main() -> None:
             raise FileNotFoundError(f"Expected data file was not found: {file_path}")
 
         if name == 'ecocrop':
-            data = pd.read_csv(
-                file_path,
-                encoding="cp1252",
-                engine="python"
-            )
+            data = pd.read_csv( file_path, encoding="cp1252", engine="python")
         else:
             data = pd.read_csv(file_path)
         
@@ -260,9 +287,15 @@ def main() -> None:
     ecocrop_df_new = match_ecocrop_to_crops(dataframes[0][1], crop_type_counts)
     #drop rows with low counts
     ecocrop_df_new = ecocrop_df_new[ecocrop_df_new['count'] > 2]
-    dataframes.append(("ecocrop_matched", ecocrop_df_new))  
+    dataframes.append(("ecocrop_matched", ecocrop_df_new))
 
     ##----- Climate data
+    with DISTRICT_MAP_FILE.open(encoding="utf-8") as district_map_file:
+        district_map = json.load(district_map_file)
+    lat_long_df = get_lat_long_per_district(district_map)
+    dataframes.append(("district_lat_long", lat_long_df))  
+    summarize_dataset("District lat/long data", lat_long_df)
+    
     # TODO: Implement climate data processing
 
 
