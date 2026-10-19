@@ -4,7 +4,9 @@ Datasets used by the crop recommendation DSS are recorded here.
 
 ## Core Raw Dataset Inventory
 
-Raw datasets shoul dbe downloaded and stored in `/data/raw/`
+Raw datasets should be downloaded and stored in `/data/raw/` before running scripts, except the last dataset which is retrieved from API calls by running
+fetch_climate_data.py
+
 
 | Dataset / file | Role in the DSS | Source / publisher | Coverage (years) | Geography | Rows | Columns | Retrieved on | URL |
 |---|---|---|---:|---|---:|---:|---|---|
@@ -12,10 +14,10 @@ Raw datasets shoul dbe downloaded and stored in `/data/raw/`
 | crops_district_production.csv | Yield prediction | OpenDOSM | 2017 | Malaysia | 11002 | 6 | 2026-09-30 | [link](https://open.dosm.gov.my/data-catalogue/crops_district_production) |
 | DATA HARGA KOMODITI PILIHAN | ROI calculation | FAMA | 2015-2026 | Malaysia | - | - | 2026-01-06 | [link](https://www.fama.gov.my/maklumat-harga-agromakanan-terpilih) |
 | EcoCrop_DB.csv | [Suitability] | FAE | NA | NA | 2568 | [fill in] | 2026-09-30 |[link](https://github.com/OpenCLIM/ecocrop/blob/main/EcoCrop_DB.csv) |
-|  | [Climate] | NA | NA | NA | 644 | 9 | 2026-10-17 |[link]() |
+| malaysia.district.geoson | [Climate] | NA | NA | NA | - | - | 2026-10-17 |[link](https://github.com/mptwaktusolat/jakim.geojson/blob/master/malaysia.district.geojson) |
+| API calls | [Climate] | NA | NA | NA | - | - | 2026-10-17 |[link](https://open-meteo.com/en/docs/historical-weather-api?) |
 
 
-https://github.com/mptwaktusolat/jakim.geojson/blob/master/malaysia.district.geojson
 
 ### Dataset size and quality
 
@@ -36,6 +38,8 @@ Running the data_processing.py and feature.py scripts create the processed datas
 | Dataset / file | Input dataset(s) | Role in the DSS | Coverage (years) | Rows | Columns | URL |
 |---|---|---|---|---|---|---|
 | yield_dataset_cleaned | [fill in] | [fill in] | [fill in] | [fill in] | [fill in] |
+| ecocrop_matched_cleaned | [fill in] | [fill in] | [fill in] | [fill in] | [fill in] |
+| weather_df_annual_cleaned | [fill in] | [fill in] | [fill in] | [fill in] | [fill in] |
 
 #### Dataset 1: Variables
 

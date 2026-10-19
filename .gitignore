@@ -5,3 +5,4 @@ models
 !models/.gitkeep
 /streamlit
 *.ipynb
+.cache.sqlite
