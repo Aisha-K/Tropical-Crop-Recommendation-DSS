@@ -6,3 +6,4 @@ models
 /streamlit
 *.ipynb
 .cache.sqlite
+*.csv

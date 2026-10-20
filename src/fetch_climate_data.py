@@ -1,4 +1,5 @@
 import json
+import argparse
 from pathlib import Path
 import openmeteo_requests
 import requests_cache
@@ -35,7 +36,7 @@ def get_lat_long_per_district(district_map: geoJSON) -> pd.DataFrame:
     return pd.DataFrame(district_data)
 
 
-def get_climate_data(district_df: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
+def get_climate_data(district_df: pd.DataFrame, start_date: str,end_date: str, start_batch: int = 1) -> pd.DataFrame:
     """Make API calls and process climate data and return a 
     cleaned DataFrame with annual averages per district."""
 
@@ -49,12 +50,19 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str, end_date: str) 
     all_weather_data = []
     failed_batches = []
     batch_size = 20
+    if start_batch < 1:
+        raise ValueError("start_batch must be at least 1")
 
     total_batches = (
         len(district_df) + batch_size - 1
     ) // batch_size
 
-    for batch_start in range(0, len(district_df), batch_size):
+    if start_batch > total_batches and total_batches > 0:
+        raise ValueError(
+            f"start_batch ({start_batch}) exceeds the total number of batches ({total_batches})"
+        )
+
+    for batch_start in range((start_batch - 1) * batch_size, len(district_df), batch_size):
 
         batch = district_df.iloc[
             batch_start:batch_start + batch_size
@@ -75,6 +83,7 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str, end_date: str) 
             "timezone": "Asia/Kuala_Lumpur"
         }
 
+        batch_weather_data = []
         try:
             # Make one API request for the batch
             responses = openmeteo.weather_api(url, params=params)
@@ -114,6 +123,7 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str, end_date: str) 
                 })
 
                 all_weather_data.append(daily_dataframe)
+                batch_weather_data.append(daily_dataframe)
 
             print(
                 f"Completed batch {batch_number}/{total_batches}"
@@ -129,29 +139,26 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str, end_date: str) 
                 "error": str(e)
             })
 
-        # Save successful results after each batch
-        if all_weather_data:
-            weather_df = pd.concat(
-                all_weather_data, ignore_index=True
-            )
-            weather_df.to_csv(
-                "district_weather_daily.csv", index=False
+        # Append this batch's results so a resumed run preserves prior data.
+        if batch_weather_data:
+            batch_weather_df = pd.concat(batch_weather_data, ignore_index=True)
+            output_file = Path("./data/district_weather_daily.csv")
+            batch_weather_df.to_csv(
+                output_file,
+                mode="a",
+                header=not output_file.exists() or output_file.stat().st_size == 0,
+                index=False,
             )
 
         # Wait 61 seconds between batches to avoid rate limits
         if batch_start + batch_size < len(district_df):
             time.sleep(61) 
 
-    # Combine all successful results
+    # Return successful results from this invocation. They were appended above.
     if all_weather_data:
         weather_df = pd.concat(
             all_weather_data, ignore_index=True
         )
-
-        weather_df.to_csv(
-            "district_weather_daily.csv", index=False
-        )
-
         print("\nTotal weather records:", len(weather_df))
         print(
             "Districts downloaded:",
@@ -166,31 +173,56 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str, end_date: str) 
     if not failed_df.empty:
         print("\nFailed batches:")
         print(failed_df)
-        failed_df.to_csv("failed_batches.csv", index=False)
+        failed_df.to_csv("./data/failed_batches.csv", index=False)
 
     return weather_df
 
 
-def main() -> None:
+def main(start_batch_one: int = 1, start_batch_two: int = 1) -> None:
 
-    dataframes = []
-
+    # get a representative lat and long for each distrinct from the geojson file and save to a csv for later use
     with DISTRICT_MAP_FILE.open(encoding="utf-8") as district_map_file:
         district_map = json.load(district_map_file)
     lat_long_df = get_lat_long_per_district(district_map)
-    dataframes.append(("district_lat_long", lat_long_df))  
+    # lat_long_df.to_csv("district_lat_long_cleaned.csv", index=False)
 
-
-    weather_df_2017 = get_climate_data(lat_long_df, "2017-01-01", "2018-10-01")
-    dataframes.append(("weather_df_api_2017", weather_df_2017))  
+    # # make API requests toget climate data for each district
+    # weather_df_2017 = get_climate_data(
+    #     lat_long_df, "2017-01-01", "2018-01-01", start_batch=start_batch_one    
+    # )
+    # #save the file
+    # weather_df_2017.to_csv(RAW_DATA_DIR / "weather_df_api_2017.csv", index=False)
+    # print(f"Saved weather data for 2017 to weather_df_api_2017.csv with {len(weather_df_2017)} records.")
+    # #delete the tmp district_weather_daily.csv file if it exists
+    # tmp_weather_file = Path("./data/district_weather_daily.csv")
+    # if tmp_weather_file.exists():
+    #     tmp_weather_file.unlink()
+    
 
     # get past 5 years for ecocrop suitability matching
-    # weather_df_2021_2026 = get_climate_data(lat_long_df, "2021-01-01", "2026-01-01")
-    # dataframes.append(("weather_df_api_2021_2026", weather_df_2021_2026))
-
-
-    # delete the tmp district_weather_daily.csv file if it exists
-    tmp_weather_file = Path("district_weather_daily.csv")
-    if tmp_weather_file.is_file():
+    weather_df_2021_2026 = get_climate_data(
+        lat_long_df, "2021-01-01", "2026-01-01", start_batch=start_batch_two)
+    # save the file
+    weather_df_2021_2026.to_csv(RAW_DATA_DIR / "weather_df_api_2021_2026.csv", index=False)
+    print(f"Saved weather data for 2021-2026 to weather_df_api_2021_2026.csv with {len(weather_df_2021_2026)} records.")
+    #delete the tmp district_weather_daily.csv file if it exists
+    tmp_weather_file = Path("./data/district_weather_daily.csv")
+    if tmp_weather_file.exists():
         tmp_weather_file.unlink()
-        print(f"Deleted temporary file: {tmp_weather_file}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Fetch daily climate data by district.")
+    parser.add_argument(
+        "--start-batch-one",
+        type=int,
+        default=1,
+        help="1-based batch number to start from (default: 1) for data from 2017-01-01 to 2018-01-01",
+    )
+    parser.add_argument(
+        "--start-batch-two",
+        type=int,
+        default=1,
+        help="1-based batch number to start from (default: 1) for data from 2021-01-01 to 2026-01-01",
+    )
+    args = parser.parse_args()
+    main(start_batch_one=args.start_batch_one, start_batch_two=args.start_batch_two)
