@@ -16,6 +16,8 @@ DATA_FILES = {
     "ecocrop": (RAW_DATA_DIR / "EcoCrop_DB.csv", None),
     "district_crop_area": (RAW_DATA_DIR / "crops_district_area.csv", "planted_area"),
     "district_crop_production": (RAW_DATA_DIR / "crops_district_production.csv", "production"),
+    "weather_df_api_2017": (RAW_DATA_DIR / "weather_df_api_2017.csv", None),
+    "weather_df_api_2021_2026": (RAW_DATA_DIR / "weather_df_api_2021_2026.csv", None),
 }
 
 LOOKUP_TABLES = {
@@ -255,7 +257,7 @@ def main() -> None:
     )
     dataframes.append(("Crop types", crop_type_counts))
 
-    ##----- Price data
+    ##----- Price data #TODO
     #matched_price_df = match_price_data(dataframes[3][1], crop_type_counts)
     #summarize_dataset("Matched price data", matched_price_df)
     #dataframes.append(("matched_price", matched_price_df))
@@ -270,13 +272,9 @@ def main() -> None:
 
     ##----- Climate data
 
-    # get 2017 data for yield data
-    # weather_df_2017 = pd.read_csv(".csv")
-    # weather_df_2017_annual = get_annual_climate_averages(weather_df_2017)
-    # dataframes.append(("weather_df_annual 2017", weather_df_2017_annual))  
-
-    # weather_df_2021_2026_annual = get_annual_climate_averages(weather_df_2021_2026)
-    # dataframes.append(("weather_df_annual 2026", weather_df_2021_2026_annual))  
+    # process 2017 data for yield part, and other data for ecocrop suitability
+    dataframes[4][1] = get_annual_climate_averages(dataframes[4][1])
+    dataframes[5][1] = get_annual_climate_averages(dataframes[5][1])
 
 
     ###----- OUTPUT final files

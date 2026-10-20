@@ -184,19 +184,19 @@ def main(start_batch_one: int = 1, start_batch_two: int = 1) -> None:
     with DISTRICT_MAP_FILE.open(encoding="utf-8") as district_map_file:
         district_map = json.load(district_map_file)
     lat_long_df = get_lat_long_per_district(district_map)
-    # lat_long_df.to_csv("district_lat_long_cleaned.csv", index=False)
+    lat_long_df.to_csv("district_lat_long_cleaned.csv", index=False)
 
     # # make API requests toget climate data for each district
-    # weather_df_2017 = get_climate_data(
-    #     lat_long_df, "2017-01-01", "2018-01-01", start_batch=start_batch_one    
-    # )
-    # #save the file
-    # weather_df_2017.to_csv(RAW_DATA_DIR / "weather_df_api_2017.csv", index=False)
-    # print(f"Saved weather data for 2017 to weather_df_api_2017.csv with {len(weather_df_2017)} records.")
-    # #delete the tmp district_weather_daily.csv file if it exists
-    # tmp_weather_file = Path("./data/district_weather_daily.csv")
-    # if tmp_weather_file.exists():
-    #     tmp_weather_file.unlink()
+    weather_df_2017 = get_climate_data(
+        lat_long_df, "2017-01-01", "2018-01-01", start_batch=start_batch_one    
+    )
+    #save the file
+    weather_df_2017.to_csv(RAW_DATA_DIR / "weather_df_api_2017.csv", index=False)
+    print(f"Saved weather data for 2017 to weather_df_api_2017.csv with {len(weather_df_2017)} records.")
+    #delete the tmp district_weather_daily.csv file if it exists
+    tmp_weather_file = Path("./data/district_weather_daily.csv")
+    if tmp_weather_file.exists():
+        tmp_weather_file.unlink()
     
 
     # get past 5 years for ecocrop suitability matching

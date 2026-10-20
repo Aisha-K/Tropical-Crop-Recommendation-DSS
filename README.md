@@ -80,3 +80,4 @@ crop_recommendation_dss/
 - Retrieve crop production/area (yield) data for more recent years
 - Find + incorporate more price data
 - Incorporate NPK
+- weather forecasting instead of historical data
