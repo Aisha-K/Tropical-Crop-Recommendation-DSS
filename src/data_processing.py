@@ -246,7 +246,6 @@ def main() -> None:
 
     new_yield_df['yield'] = new_yield_df['production'] / new_yield_df['planted_area']
     summarize_dataset("Merged dataset", new_yield_df)
-    dataframes.append(("yield_dataset", new_yield_df))
 
     #output list of included crop types
     crop_type_counts = (
@@ -273,9 +272,25 @@ def main() -> None:
     ##----- Climate data
 
     # process 2017 data for yield part, and other data for ecocrop suitability
-    dataframes[4][1] = get_annual_climate_averages(dataframes[4][1])
-    dataframes[5][1] = get_annual_climate_averages(dataframes[5][1])
+    for index in (3, 4):
+        name, climate_df = dataframes[index]
+        dataframes[index] = (
+            name,
+            get_annual_climate_averages(climate_df),
+        )
 
+    # join 2017 data to yield dataset
+    # TODO add mean temperature too
+    new_yield_df['year'] = pd.to_datetime(new_yield_df['date']).dt.year
+    yield_with_climate_df = new_yield_df.merge(
+        dataframes[3][1],
+        on=["district", "year"],
+        how="left",
+        sort=False,
+        validate="many_to_one",
+    )
+
+    dataframes.append(("yield_with_climate", yield_with_climate_df))
 
     ###----- OUTPUT final files
     for name, data in dataframes:

@@ -13,7 +13,7 @@ Malaysian data to provide a model for tropical climates.
 - Backend: models 
     - Placeholder ML model interface
     - Rule-based FAO suitability model
-    - Ecnomic Return model
+    - Economic Return model
 
 ## Requirements
 
@@ -23,12 +23,26 @@ Create and activate a virtual environment:
 
 ### Quickstart: Windows CMD
 
+1. Download the required raw data and required libraries
+
 ```cmd
 python -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
+
+
+2. Run the scripts to create the models
+
+```
+python fetch_climate_data.py
+python data_processing.py
+python feature.py
+python train.py
+```
+
+3. Run the app
 
 Run:
 
