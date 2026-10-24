@@ -71,6 +71,11 @@ def get_annual_climate_averages(climate_df: pd.DataFrame) -> pd.DataFrame:
     annual_averages = climate_df.groupby(["district", "year"], as_index=False).agg({
         "temperature_2m_max": "mean",
         "temperature_2m_min": "mean",
+        "temperature_2m_mean": 'mean',
+        "et0_fao_evapotranspiration": "mean",
+        "sunshine_duration": "mean",
+        "precipitation_hours": "mean",
+        "shortwave_radiation_sum": "mean",
         "rain_sum": "sum"
     })
 
@@ -266,7 +271,8 @@ def main() -> None:
     # match EcoCrop rows to crop types from the district data
     ecocrop_df_new = match_ecocrop_to_crops(dataframes[0][1], crop_type_counts)
     #drop rows with low counts
-    ecocrop_df_new = ecocrop_df_new[ecocrop_df_new['count'] > 2]
+    ecocrop_df_new = ecocrop_df_new[ecocrop_df_new['count'] > 4]
+    ecocrop_df_new = ecocrop_df_new.rename(columns={'crop_type':'crop_species'})
     dataframes.append(("ecocrop_matched", ecocrop_df_new))
 
     ##----- Climate data
@@ -279,8 +285,11 @@ def main() -> None:
             get_annual_climate_averages(climate_df),
         )
 
+    #outlier management, remove extreme outliers with yield more than 600 tonnes/hectare
+    new_yield_df = new_yield_df[new_yield_df['yield']<600]
+    # remove bees
+    new_yield_df = new_yield_df[new_yield_df['crop_species']!="kelulut_bee"]
     # join 2017 data to yield dataset
-    # TODO add mean temperature too
     new_yield_df['year'] = pd.to_datetime(new_yield_df['date']).dt.year
     yield_with_climate_df = new_yield_df.merge(
         dataframes[3][1],
@@ -289,6 +298,19 @@ def main() -> None:
         sort=False,
         validate="many_to_one",
     )
+
+    #join ecocrop suitability data
+    #TODO remove drop dup
+    yield_with_climate_df =  yield_with_climate_df.merge(
+        ecocrop_df_new.drop_duplicates(subset=['crop_species'], keep='first'),
+        on = "crop_species",
+        how = 'inner',
+        sort  = False,
+        validate = 'many_to_one'
+    )
+
+    yield_with_climate_df['diff_from_maxtmp'] = yield_with_climate_df['avg_temp_max'] - yield_with_climate_df['TMAX']
+    yield_with_climate_df['diff_from_mintmp'] = yield_with_climate_df['avg_temp_min'] - yield_with_climate_df['TMIN']
 
     dataframes.append(("yield_with_climate", yield_with_climate_df))
 

@@ -18,6 +18,7 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.compose import make_column_transformer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
+from sklearn.compose import TransformedTargetRegressor
 
 from xgboost import XGBRegressor
 from catboost import CatBoostRegressor
@@ -87,14 +88,57 @@ def test_ecocrop_ranking(ecocrop_df):
         ].head(20)
     )
 
+def print_crop_specific_results(results, y_train, X_train):
+    # Crop-specific medians calculated from TRAINING data only
+    train_medians = (
+        pd.DataFrame({
+            "crop_species": X_train["crop_species"].to_numpy(),
+            "yield": np.asarray(y_train).ravel()
+        })
+        .groupby("crop_species")["yield"]
+        .median()
+    )
 
+    
+    # Global training median as fallback for unseen crops
+    global_median = np.median(np.asarray(y_train).ravel())
+
+    results["baseline_pred"] = (
+        results["crop_species"]
+        .map(train_medians)
+        .fillna(global_median)
+    )
+
+    comparison = (
+        results.groupby("crop_species")
+        .apply(lambda g: pd.Series({
+            "n_test": len(g),
+            "XGB_MAE": mean_absolute_error(g["actual"], g["xgb_pred"]),
+            "Baseline_MAE": mean_absolute_error(g["actual"], g["baseline_pred"]),
+            "actual_median": g["actual"].median(),
+            "actual_mean": g["actual"].mean()
+        }), include_groups=False)
+        .reset_index()
+    )
+
+    comparison["MAE_improvement_pct"] = (
+        100 * (
+            comparison["Baseline_MAE"] - comparison["XGB_MAE"]
+        ) / comparison["Baseline_MAE"].replace(0, np.nan)
+    )
+
+    print(
+        comparison
+        .sort_values("MAE_improvement_pct", ascending=False)
+        .to_string(index=False)
+    )
 
 def train_crop_yield_model(X_train, X_test, y_train, y_test, model):
     """Train a crop yield prediction model and evaluate its performance."""
     
     # Train model
     if isinstance(model, CatBoostRegressor):
-        model.fit(X_train, y_train, cat_features=["state","crop_species","crop_type"])
+        model.fit(X_train, y_train, cat_features=["crop_species"])
     else:
         model.fit(X_train, y_train)
 
@@ -107,12 +151,20 @@ def train_crop_yield_model(X_train, X_test, y_train, y_test, model):
     "predicted": predictions
     })
 
-    errors["absolute_error"] = (
-        errors["actual"] - errors["predicted"]
-    ).abs()
+    # errors["absolute_error"] = (
+    #     errors["actual"] - errors["predicted"]
+    # ).abs()
 
-    print(errors["actual"].describe())
-    print(errors.nlargest(10, "absolute_error"))
+    # print(errors["actual"].describe())
+    # print(errors.nlargest(10, "absolute_error"))
+
+
+    # Actual yields and predictions in original yield units
+    results = pd.DataFrame({
+        "crop_species": X_test["crop_species"].to_numpy(),
+        "actual": np.asarray(y_test).ravel(),
+        "xgb_pred": np.asarray(predictions).ravel()
+    })
 
     # Evaluate model
     mae = mean_absolute_error(y_test, predictions)
@@ -128,6 +180,13 @@ def train_crop_yield_model(X_train, X_test, y_train, y_test, model):
     }
 
     # Print results
+    print_crop_specific_results(results, y_train, X_train)
+
+    print("Actual range:", y_test.min(), y_test.max())
+    print("Predicted range:", np.min(predictions), np.max(predictions))
+    print("Actual std:", y_test.std())
+    print("Predicted std:", np.std(predictions))
+
     print(f"Model: {results['model']}")
     print(f"MAE:  {mae:.4f}")
     print(f"RMSE: {rmse:.4f}")
@@ -153,47 +212,73 @@ def create_models(preprocessor):
     )
 
     # 2. Decision Tree
-    decision_tree_model = make_pipeline(
-        preprocessor,
-        DecisionTreeRegressor(
+    decision_tree_model = TransformedTargetRegressor(
+        regressor=Pipeline([
+        ('preprocessor',preprocessor),
+        ('model', DecisionTreeRegressor(
             max_depth=10,
             random_state=42
+        ))
+           ]),
+        func=np.log1p,
+        inverse_func=np.expm1
         )
-    )
 
     # 3. Random Forest
-    random_forest_model = make_pipeline(
-        preprocessor,
-        RandomForestRegressor(
-            n_estimators=200,
-            max_depth=None,
-            random_state=42,
-            n_jobs=-1
-        )
+    #no log scale version
+    # random_forest_model = make_pipeline(
+    #     preprocessor,
+    #     RandomForestRegressor(
+    #         n_estimators=200,
+    #         max_depth=None,
+    #         random_state=42,
+    #         n_jobs=-1
+    #     )
+    # )
+
+    random_forest_model = TransformedTargetRegressor(
+        regressor=Pipeline([
+            ("preprocessor", preprocessor),
+            ("model", RandomForestRegressor(
+                n_estimators=300,
+                random_state=42,
+                min_samples_leaf=3
+            ))
+        ]),
+        func=np.log1p,
+        inverse_func=np.expm1
     )
 
     # 4. Gradient Boosting
-    gradient_boosting_model = make_pipeline(
-        preprocessor,
-        GradientBoostingRegressor(
+    gradient_boosting_model = TransformedTargetRegressor(
+        regressor=Pipeline([
+        ('preprocessor',preprocessor),
+        ('model',GradientBoostingRegressor(
             n_estimators=200,
             learning_rate=0.05,
             max_depth=3,
             random_state=42
-        )
+        ))
+        ]),
+        func=np.log1p,
+        inverse_func=np.expm1
     )
 
     # 5. XGBoost
-    xgboost_model = make_pipeline(
-        preprocessor,
-        XGBRegressor(
+    xgboost_model = TransformedTargetRegressor(
+        regressor=Pipeline([
+        ('preprocessor', preprocessor),
+        ('model', XGBRegressor(
             n_estimators=300,
             learning_rate=0.05,
             max_depth=5,
             objective="reg:squarederror",
             random_state=42,
             n_jobs=-1
-        )
+        ))
+        ]),
+        func=np.log1p,
+        inverse_func=np.expm1
     )
 
     # 6. Catboost
@@ -209,9 +294,9 @@ def create_models(preprocessor):
 
     models = {
         #"Linear Regression": linear_model,
-        "Decision Tree": decision_tree_model,
+        #"Decision Tree": decision_tree_model,
         "Random Forest": random_forest_model,
-        "Gradient Boosting": gradient_boosting_model,
+        #"Gradient Boosting": gradient_boosting_model,
         "XGBoost": xgboost_model,
         #"CatBoost": catboost_model,
     }
@@ -222,19 +307,27 @@ def main() -> None:
     # get features and target data
     X, y = load_yield_data_features()
 
-    X = X.drop( ["district"], axis =1)
+    #X = X.drop( ["district"], axis =1)
+    X = X.drop( ["crop_type"], axis =1)
+    #X = X.drop( ["state"], axis =1)
 
     # get split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 
     # optional feature processing (dependant on model)
-    categorical_features = ["crop_type", "crop_species",  "state"]
+    categorical_features = [ "crop_species", "district","state"]
     numerical_features = [
-        "avg_temp_min",
-        "avg_temp_max",
-        "temperature_range",
-        "total_rainfall",
+        'temperature_range',
+        'avg_temp_max',
+        'avg_temp_min',
+        "diff_from_maxtmp",
+        "diff_from_mintmp"
+        # "total_rainfall",
+        # 'et0_fao_evapotranspiration',
+        # 'sunshine_duration',
+        # 'precipitation_hours',
+        # 'shortwave_radiation_sum'
     ]
 
     categorical_pipeline = Pipeline([

@@ -49,7 +49,7 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str,end_date: str, s
 
     all_weather_data = []
     failed_batches = []
-    batch_size = 20
+    batch_size = 10
     if start_batch < 1:
         raise ValueError("start_batch must be at least 1")
 
@@ -76,9 +76,14 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str,end_date: str, s
             "start_date": start_date,
             "end_date": end_date,
             "daily": [
+                "temperature_2m_mean",
                 "temperature_2m_max",
                 "temperature_2m_min",
-                "rain_sum"
+                "precipitation_sum",
+                "et0_fao_evapotranspiration",
+                "sunshine_duration",
+                "precipitation_hours",
+                "shortwave_radiation_sum",
             ],
             "timezone": "Asia/Kuala_Lumpur"
         }
@@ -114,12 +119,14 @@ def get_climate_data(district_df: pd.DataFrame, start_date: str,end_date: str, s
                     "latitude": float(row["latitude"]),
                     "longitude": float(row["longitude"]),
                     "date": dates,
-                    "temperature_2m_max":
-                        daily.Variables(0).ValuesAsNumpy(),
-                    "temperature_2m_min":
-                        daily.Variables(1).ValuesAsNumpy(),
-                    "rain_sum":
-                        daily.Variables(2).ValuesAsNumpy()
+                    "temperature_2m_mean": daily.Variables(0).ValuesAsNumpy(),
+                    "temperature_2m_max": daily.Variables(1).ValuesAsNumpy(),
+                    "temperature_2m_min": daily.Variables(2).ValuesAsNumpy(),
+                    "rain_sum": daily.Variables(3).ValuesAsNumpy(),
+                    "et0_fao_evapotranspiration": daily.Variables(4).ValuesAsNumpy(),
+                    "sunshine_duration": daily.Variables(5).ValuesAsNumpy(),
+                    "precipitation_hours": daily.Variables(6).ValuesAsNumpy(),
+                    "shortwave_radiation_sum": daily.Variables(7).ValuesAsNumpy(),
                 })
 
                 all_weather_data.append(daily_dataframe)

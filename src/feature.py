@@ -20,17 +20,25 @@ def load_yield_data_features(path: Optional[str] = None, target_col = 'yield') -
 	if csv_path.is_file():
 			frame= pd.read_csv(csv_path)
 
+	# print(
+    # frame.groupby("crop_species")["yield"]
+    #   .agg(["count", "mean", "median", "std", "min", "max"])
+    #   .sort_values("max", ascending=False)
+    #   .head(20)
+	# )
+
 	frame.columns = [str(column).strip() for column in frame.columns]
 
 	# These fields are not model inputs; year is constant in the current dataset.
 	excluded_columns = {
 		column
 		for column in frame.columns
-		if column.lower().replace(" ", "_") in {"production", "planted_area", "date"}
+		if column.lower().replace(" ", "_") in {"production", "planted_area", "date", "year"}
 	}
 
 	frame = frame.drop(columns=list(excluded_columns))
 	target = frame.pop(target_col) if target_col is not None else None
+
 	print(f"lenght before dropping nan rows is {len(frame)}")
 	frame = frame.replace([np.inf, -np.inf], np.nan).dropna(axis=1, how="all")
 	print(f"lenght after dropping nan rows is {len(frame)}")
