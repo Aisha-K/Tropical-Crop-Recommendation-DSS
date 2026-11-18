@@ -16,7 +16,7 @@ fetch_climate_data.py
 | EcoCrop_DB.csv | [Suitability] | FAE | NA | NA | 2568 | [fill in] | 2026-09-30 |[link](https://github.com/OpenCLIM/ecocrop/blob/main/EcoCrop_DB.csv) |
 | malaysia.district.geoson | [Climate] | NA | NA | NA | - | - | 2026-10-17 |[link](https://github.com/mptwaktusolat/jakim.geojson/blob/master/malaysia.district.geojson) |
 | API calls | [Climate] | NA | NA | NA | - | - | 2026-10-17 |[link](https://open-meteo.com/en/docs/historical-weather-api?) |
-
+| Multiple at 5-15cm (soc, cec, pH, nitrogen, clay) | [soil] | NA | NA | NA | - | - | 2026-10-17 |[link](https://files.isric.org/soilgrids/latest/data_aggregated/5000m/) |
 
 
 ### Dataset size and quality

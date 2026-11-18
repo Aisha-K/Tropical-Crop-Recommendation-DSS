@@ -18,6 +18,7 @@ DATA_FILES = {
     "district_crop_production": (RAW_DATA_DIR / "crops_district_production.csv", "production"),
     "weather_df_api_2017": (RAW_DATA_DIR / "weather_df_api_2017.csv", None),
     "weather_df_api_2021_2026": (RAW_DATA_DIR / "weather_df_api_2021_2026.csv", None),
+    "soil_district_data": (RAW_DATA_DIR / "soil_data.csv", None)
 }
 
 LOOKUP_TABLES = {
@@ -68,16 +69,23 @@ def get_annual_climate_averages(climate_df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate daily climate data to annual averages per district."""
     climate_df["year"] = pd.to_datetime(climate_df["date"]).dt.year
 
-    annual_averages = climate_df.groupby(["district", "year"], as_index=False).agg({
-        "temperature_2m_max": "mean",
-        "temperature_2m_min": "mean",
-        "temperature_2m_mean": 'mean',
-        "et0_fao_evapotranspiration": "mean",
-        "sunshine_duration": "mean",
-        "precipitation_hours": "mean",
-        "shortwave_radiation_sum": "mean",
-        "rain_sum": "sum"
-    })
+    if(climate_df["year"][1]=="2017"):
+        annual_averages = climate_df.groupby(["district", "year"], as_index=False).agg({
+            "temperature_2m_max": "mean",
+            "temperature_2m_min": "mean",
+            "temperature_2m_mean": 'mean',
+            "et0_fao_evapotranspiration": "mean",
+            "sunshine_duration": "mean",
+            "precipitation_hours": "mean",
+            "shortwave_radiation_sum": "mean",
+            "rain_sum": "sum"
+        })
+    else:
+        annual_averages = climate_df.groupby(["district", "year"], as_index=False).agg({
+            "temperature_2m_max": "mean",
+            "temperature_2m_min": "mean",
+            "rain_sum": "sum"
+        })
 
     # Rename columns for clarity
     annual_averages.rename(columns={
@@ -172,6 +180,7 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
         #"yam": ["Dioscorea alata", "Dioscorea esculenta"], #grown on small scale, probably meant keladi
         #"coffee": #multiple species grown in malaysia
         "roselle": ["Hibiscus sabdariffa var. sabdariffa"],  # probably
+        "groundnuts": ["Arachis hypogaea"], 
     }
 
     print(joined.loc[joined["crop_type"]=="yam", ["crop_type", "ScientificName"]].head(10))
@@ -189,8 +198,18 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
     keladi_row = ecocrop_df[ecocrop_df["ScientificName"] == "Colocasia esculenta"]
     joined = pd.concat([joined, keladi_row.assign(crop_type="yam", count = 67)], ignore_index=True)
 
-    #TODO add data for crops that are missing from the ecocrop data
-    # AI and sources used
+    #add data for crops that are missing from the ecocrop data (~16)
+    #read in file and merge to the joined dataframe
+    missing_crops_path = RAW_DATA_DIR / "ecocrop_missing_requirements.xlsx"
+    missing_crops_df = pd.read_excel(missing_crops_path)
+    # Set crop_type as index for updating
+    missing_crops_df = missing_crops_df.set_index("crop_type")
+
+    # Update existing columns only where joined has missing values
+    joined = joined.set_index("crop_type")
+    joined.update(missing_crops_df)
+
+    joined = joined.reset_index()
 
     return joined.drop(columns=["_match_name", "__eco_row_id"])
 
@@ -211,7 +230,7 @@ def main() -> None:
         else:
             data = pd.read_csv(file_path)
         
-        summarize_dataset(name, data)
+        #summarize_dataset(name, data)
         #list_crop_values(name, data) #list each unique crop name
 
         # DATA CLEANING
@@ -227,7 +246,7 @@ def main() -> None:
             print(f"Removed {zero_rows:,} zero rows.")
 
         #summarize stats for cleaned files
-        summarize_dataset(name, data)
+        #summarize_dataset(name, data)
 
         dataframes.append((name, data)) # store dataset name and dataframe
 
@@ -277,7 +296,7 @@ def main() -> None:
 
     ##----- Climate data
 
-    # process 2017 data for yield part, and other data for ecocrop suitability
+    # process 2017 data for yield part, and recent years for ecocrop suitability
     for index in (3, 4):
         name, climate_df = dataframes[index]
         dataframes[index] = (
@@ -285,10 +304,14 @@ def main() -> None:
             get_annual_climate_averages(climate_df),
         )
 
+    ##----- Yield df merging
     #outlier management, remove extreme outliers with yield more than 600 tonnes/hectare
     new_yield_df = new_yield_df[new_yield_df['yield']<600]
-    # remove bees
+    # remove bees, mushrooms (too vague), and swamp willow weed from the yield dataset
     new_yield_df = new_yield_df[new_yield_df['crop_species']!="kelulut_bee"]
+    new_yield_df = new_yield_df[new_yield_df['crop_species']!="mushroom"]
+    new_yield_df = new_yield_df[new_yield_df['crop_species']!="swamp_willow_weed"]
+
     # join 2017 data to yield dataset
     new_yield_df['year'] = pd.to_datetime(new_yield_df['date']).dt.year
     yield_with_climate_df = new_yield_df.merge(
@@ -307,6 +330,15 @@ def main() -> None:
         how = 'inner',
         sort  = False,
         validate = 'many_to_one'
+    )
+
+    #join with soil data
+    yield_with_climate_df = yield_with_climate_df.merge(
+        dataframes[5][1],
+        on = "district",
+        how = 'left',
+        sort = False,
+        validate = "many_to_one"
     )
 
     yield_with_climate_df['diff_from_maxtmp'] = yield_with_climate_df['avg_temp_max'] - yield_with_climate_df['TMAX']

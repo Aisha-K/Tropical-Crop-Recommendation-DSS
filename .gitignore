@@ -7,3 +7,4 @@ models
 *.ipynb
 .cache.sqlite
 *.csv
+!/data/raw/ecocrop_missing_requirements
