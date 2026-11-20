@@ -1,5 +1,6 @@
 data/*
 !data/.gitkeep
+!/data/raw/ecocrop_missing_requirements.xlsx
 /.venv
 models
 !models/.gitkeep
@@ -7,4 +8,4 @@ models
 *.ipynb
 .cache.sqlite
 *.csv
-!/data/raw/ecocrop_missing_requirements
+*.tsv

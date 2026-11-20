@@ -22,6 +22,7 @@ from sklearn.compose import TransformedTargetRegressor
 
 from xgboost import XGBRegressor
 from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_DATA_DIR = PROJECT_ROOT / "data" / "model"
@@ -102,6 +103,7 @@ def print_crop_specific_results(results, y_train, X_train):
     
     # Global training median as fallback for unseen crops
     global_median = np.median(np.asarray(y_train).ravel())
+    print(results)
 
     results["baseline_pred"] = (
         results["crop_species"]
@@ -138,7 +140,7 @@ def train_crop_yield_model(X_train, X_test, y_train, y_test, model):
     
     # Train model
     if isinstance(model, CatBoostRegressor):
-        model.fit(X_train, y_train, cat_features=["crop_species"])
+        model.fit(X_train, y_train, cat_features=["crop_species", "state","crop_type", "district"])
     else:
         model.fit(X_train, y_train)
 
@@ -166,6 +168,9 @@ def train_crop_yield_model(X_train, X_test, y_train, y_test, model):
         "xgb_pred": np.asarray(predictions).ravel()
     })
 
+    # Print results
+    print_crop_specific_results(results, y_train, X_train)
+
     # Evaluate model
     mae = mean_absolute_error(y_test, predictions)
     rmse = mean_squared_error(y_test, predictions) ** 0.5
@@ -179,8 +184,6 @@ def train_crop_yield_model(X_train, X_test, y_train, y_test, model):
         "R2": r2,
     }
 
-    # Print results
-    print_crop_specific_results(results, y_train, X_train)
 
     print("Actual range:", y_test.min(), y_test.max())
     print("Predicted range:", np.min(predictions), np.max(predictions))
@@ -289,7 +292,25 @@ def create_models(preprocessor):
         loss_function="RMSE",
         verbose=0,
         random_seed=42,
-        cat_features=["crop_species", "state","crop_type"]
+        cat_features=["crop_species", "state","crop_type", "district"]
+    )
+
+    # 6. LightGBM
+    lightgbm_model = TransformedTargetRegressor(
+    regressor=Pipeline([
+        ('preprocessor', preprocessor),
+        ('model', LGBMRegressor(
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=5,
+            objective="regression",
+            random_state=42,
+            n_jobs=-1,
+            verbosity=-1
+        ))
+        ]),
+        func=np.log1p,
+        inverse_func=np.expm1
     )
 
     models = {
@@ -298,7 +319,8 @@ def create_models(preprocessor):
         "Random Forest": random_forest_model,
         #"Gradient Boosting": gradient_boosting_model,
         "XGBoost": xgboost_model,
-        #"CatBoost": catboost_model,
+        "CatBoost": catboost_model,
+        "LightGBM": lightgbm_model
     }
 
     return models
@@ -307,28 +329,33 @@ def main() -> None:
     # get features and target data
     X, y = load_yield_data_features()
 
-    #X = X.drop( ["district"], axis =1)
-    X = X.drop( ["crop_type"], axis =1)
-    #X = X.drop( ["state"], axis =1)
-
-    # get split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-
     # optional feature processing (dependant on model)
-    categorical_features = [ "crop_species", "district","state"]
+    categorical_features = [ "crop_species", "district","state", "crop_type"]
     numerical_features = [
         'temperature_range',
         'avg_temp_max',
         'avg_temp_min',
         "diff_from_maxtmp",
-        "diff_from_mintmp"
+        "diff_from_mintmp",
+        "ph_diff",
+        # "pH",
+        "soc",
+        "cec",
+        "nitrogen",
+        # "clay",
         # "total_rainfall",
         # 'et0_fao_evapotranspiration',
         # 'sunshine_duration',
         # 'precipitation_hours',
         # 'shortwave_radiation_sum'
     ]
+
+    #limit columns in X to only those in categorical_features and numerical_features
+    X = X[categorical_features + numerical_features]
+
+    # get split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
 
     categorical_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="most_frequent")),

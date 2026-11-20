@@ -182,8 +182,6 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
         "roselle": ["Hibiscus sabdariffa var. sabdariffa"],  # probably
         "groundnuts": ["Arachis hypogaea"], 
     }
-
-    print(joined.loc[joined["crop_type"]=="yam", ["crop_type", "ScientificName"]].head(10))
    
    # remove rows from joined that have more than one match and are not in the proper_match dictionary
     for key, values in proper_match.items():
@@ -197,6 +195,12 @@ def match_ecocrop_to_crops(ecocrop_df: pd.DataFrame, crop_type_counts: pd.DataFr
     #manually join yam to "Colocasia esculenta" from eco crop, as it is referred to as keladi/yam in malaysia
     keladi_row = ecocrop_df[ecocrop_df["ScientificName"] == "Colocasia esculenta"]
     joined = pd.concat([joined, keladi_row.assign(crop_type="yam", count = 67)], ignore_index=True)
+
+    #get rid of some duplicates
+    joined = joined.loc[joined["EcoPortCode"] != 13541] #remove one lemongrass as they have simlar requirements
+    joined = joined.loc[joined["EcoPortCode"] != 750] #remove less common coffee
+    joined = joined.loc[joined["EcoPortCode"] != 5387] #remove other yam
+    joined = joined.loc[joined["EcoPortCode"] != 400] #remove other yam
 
     #add data for crops that are missing from the ecocrop data (~16)
     #read in file and merge to the joined dataframe
@@ -323,9 +327,7 @@ def main() -> None:
     )
 
     #join ecocrop suitability data
-    #TODO remove drop dup
-    yield_with_climate_df =  yield_with_climate_df.merge(
-        ecocrop_df_new.drop_duplicates(subset=['crop_species'], keep='first'),
+    yield_with_climate_df =  yield_with_climate_df.merge(ecocrop_df_new,
         on = "crop_species",
         how = 'inner',
         sort  = False,

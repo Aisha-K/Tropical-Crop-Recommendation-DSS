@@ -48,6 +48,9 @@ def load_yield_data_features(path: Optional[str] = None, target_col = 'yield') -
 			pd.to_numeric(frame['avg_temp_max'], errors="coerce") - pd.to_numeric(frame['avg_temp_min'], errors="coerce")
 		)
 
+	frame["ph_optimal"] = ( (pd.to_numeric(frame['PHOPMX'], errors="coerce") - pd.to_numeric(frame['PHOPMN'], errors="coerce")) /2)
+	frame["ph_diff"] = (pd.to_numeric(frame['pH'], errors="coerce") - pd.to_numeric(frame['ph_optimal'], errors="coerce"))
+
 	target = pd.to_numeric(target, errors="coerce")
 		
 	return frame, target
